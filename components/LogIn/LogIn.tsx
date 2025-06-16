@@ -38,7 +38,7 @@ export default function LogIn() {
               onChange={handleChange}
               className="mb-2"
             />
-            <Button type="submit" className="w-full mt-2"><Link href="/pages/client">Login</Link></Button>
+            <Button type="submit" className="w-full mt-2"><Link href="/pages/caregiver">Login</Link></Button>
           </form>
           <p className="mt-4 text-sm text-center">
             Don&apos;t have an account?{' '}

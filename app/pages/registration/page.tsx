@@ -59,15 +59,8 @@ export default function RegistrationForm() {
       case "mobile_number":
         if (!/^\d+$/.test(value)) error = "Valid mobile number is required";
         break;
-      case "username":
-        if (role === "admin" && !value) error = "Username is required";
-        break;
       case "employee_id":
         if (role === "caregiver" && !value) error = "Employee ID is required";
-        break;
-      case "specialization":
-        if (role === "caregiver" && !value)
-          error = "Specialization is required";
         break;
       case "age":
         if (role === "patient" && (!value || !/^\d+$/.test(value)))
@@ -213,40 +206,6 @@ export default function RegistrationForm() {
 
   const additionalFields = () => {
     switch (role) {
-      case "admin":
-        return (
-          <>
-            <Input
-              placeholder="Username"
-              name="username"
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className="mb-1"
-            />
-            {renderError("username")}
-          </>
-        );
-      case "caregiver":
-        return (
-          <>
-            <Input
-              placeholder="Employee ID"
-              name="employee_id"
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className="mb-1"
-            />
-            {renderError("employee_id")}
-            <Input
-              placeholder="Specialization"
-              name="specialization"
-              onChange={handleChange}
-              onBlur={handleBlur}
-              className="mb-1"
-            />
-            {renderError("specialization")}
-          </>
-        );
       case "patient":
         return (
           <>
