@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import debounce from "lodash.debounce";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
@@ -15,99 +14,98 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetTrigger,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import NavBar from "@/components/NavBar/NavBar";
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
-const Dialog = dynamic(() => import("@/components/ui/dialog").then(mod => mod.Dialog), { ssr: false });
-const DialogContent = dynamic(() => import("@/components/ui/dialog").then(mod => mod.DialogContent), { ssr: false });
-const DialogTitle = dynamic(() => import("@/components/ui/dialog").then(mod => mod.DialogTitle), { ssr: false });
-const DialogDescription = dynamic(() => import("@/components/ui/dialog").then(mod => mod.DialogDescription), { ssr: false });
+const Dialog = dynamic(() => import("@/components/ui/dialog").then((mod) => mod.Dialog), { ssr: false });
+const DialogContent = dynamic(() => import("@/components/ui/dialog").then((mod) => mod.DialogContent), { ssr: false });
+const DialogTitle = dynamic(() => import("@/components/ui/dialog").then((mod) => mod.DialogTitle), { ssr: false });
+const DialogDescription = dynamic(() => import("@/components/ui/dialog").then((mod) => mod.DialogDescription), { ssr: false });
 
 export default function RegistrationForm() {
   const [role, setRole] = useState("admin");
   const [formData, setFormData] = useState<Record<string, any>>({
-    caregiver: null,
+    email: "",
+    password: "",
+    confirmPassword: "",
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    address: "",
+    gender: "",
+    mobile_number: "",
+    age: "",
+    height: "",
+    weight: "",
+    emergency_contact_name: "",
+    emergency_contact_number: "",
+    emergency_contact_address: "",
+    caregiver: { id: 0 },
   });
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showDialog, setShowDialog] = useState(false);
   const [generatedUsername, setGeneratedUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [caregivers, setCaregivers] = useState<{ id: number; first_name: string; last_name: string }[]>([]);
+  const [caregiversLoading, setCaregiversLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     if (role === "patient") {
+      setCaregiversLoading(true);
       fetch("http://localhost:8080/api/caregivers")
         .then((res) => res.json())
-        .then((data) => setCaregivers(data))
-        .catch((err) => console.error("Failed to fetch caregivers:", err));
+        .then((data) => {
+          setCaregivers(data);
+          setFormData((prev) => ({ ...prev, caregiver: { id: 0 } }));
+        })
+        .catch((err) => console.error("Failed to fetch caregivers:", err))
+        .finally(() => setCaregiversLoading(false));
+    } else {
+      setFormData((prev) => ({ ...prev, caregiver: { id: 0 } }));
     }
   }, [role]);
 
-  const validateField = useCallback((name: string, value: string) => {
-    let error = "";
-    switch (name) {
-      case "email":
-        if (!/\S+@\S+\.\S+/.test(value)) error = "Valid email is required";
-        break;
-      case "password":
-        if (value.length < 6) error = "Password must be at least 6 characters";
-        break;
-      case "firstName":
-        if (!value) error = "First name is required";
-        break;
-      case "lastName":
-        if (!value) error = "Last name is required";
-        break;
-      case "address":
-        if (!value) error = "Address is required";
-        break;
-      case "gender":
-        if (!value) error = "Gender is required";
-        break;
-      case "mobile_number":
-        if (!/^\d+$/.test(value)) error = "Valid mobile number is required";
-        break;
-      case "age":
-      case "height":
-      case "weight":
-        if (role === "patient" && (!value || Number(value) <= 0)) error = `Valid ${name} is required`;
-        break;
-      case "emergency_contact_name":
-      case "emergency_contact_address":
-        if (role === "patient" && !value) error = `${name.replace(/_/g, ' ')} is required`;
-        break;
-      case "emergency_contact_number":
-        if (role === "patient" && !/^\d+$/.test(value)) error = "Valid emergency contact number is required";
-        break;
-    }
-    setErrors(prev => ({ ...prev, [name]: error }));
-  }, [role]);
-
-  const debouncedValidateField = useMemo(() => debounce(validateField, 300), [validateField]);
-
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setErrors(prev => ({ ...prev, [name]: "" }));
-    debouncedValidateField(name, value);
-  }, [debouncedValidateField]);
-
-  const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    validateField(name, value);
-  }, [validateField]);
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    Object.entries(formData).forEach(([key, value]) => {
-      validateField(key, value);
-      if (errors[key]) newErrors[key] = errors[key];
-    });
+
+    if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Valid email is required";
+    if (formData.password.length < 6) newErrors.password = "Password must be at least 6 characters";
+    if (formData.confirmPassword !== formData.password) newErrors.confirmPassword = "Passwords do not match";
+    if (!formData.firstName) newErrors.firstName = "First name is required";
+    if (!formData.lastName) newErrors.lastName = "Last name is required";
+    if (!formData.address) newErrors.address = "Address is required";
+    if (!formData.gender) newErrors.gender = "Gender is required";
+    if (!/^\d+$/.test(formData.mobile_number)) newErrors.mobile_number = "Valid mobile number is required";
+
+    if (role === "patient") {
+      if (!formData.age || Number(formData.age) <= 0) newErrors.age = "Valid age is required";
+      if (!formData.height || Number(formData.height) <= 0) newErrors.height = "Valid height is required";
+      if (!formData.weight || Number(formData.weight) <= 0) newErrors.weight = "Valid weight is required";
+      if (!formData.emergency_contact_name) newErrors.emergency_contact_name = "Emergency contact name is required";
+      if (!/^\d+$/.test(formData.emergency_contact_number)) newErrors.emergency_contact_number = "Valid emergency contact number is required";
+      if (!formData.emergency_contact_address) newErrors.emergency_contact_address = "Emergency contact address is required";
+      if (!formData.caregiver?.id || formData.caregiver.id === 0) newErrors.caregiver = "Caregiver is required";
+    }
+
+    setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validateForm()) return;
 
@@ -125,46 +123,46 @@ export default function RegistrationForm() {
         body: JSON.stringify(formData),
       });
 
+      const text = await response.text();
       if (!response.ok) throw new Error("Registration failed");
 
-      const result = await response.json();
+      const result = JSON.parse(text);
       setGeneratedUsername(result.username);
       setShowDialog(true);
-    } catch (error) {
-      alert("Network or server error. Please try again.");
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong. Please check the server or form data.");
     } finally {
       setLoading(false);
     }
-  }, [formData, role]);
+  };
 
   const renderError = (field: string) =>
     errors[field] && <p className="text-red-500 text-sm mb-1">{errors[field]}</p>;
 
   const commonFields = (
     <>
-      <Input name="email" placeholder="Email" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
+      <Input name="email" placeholder="Email" onChange={handleChange} className="mb-1" />
       {renderError("email")}
-
-      <Input name="password" placeholder="Password" type="password" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
+      <Input name="password" placeholder="Password" type="password" onChange={handleChange} className="mb-1" />
       {renderError("password")}
+      <Input name="confirmPassword" placeholder="Confirm Password" type="password" onChange={handleChange} className="mb-1" />
+      {renderError("confirmPassword")}
 
       <div className="flex gap-2 mb-1">
-        <Input name="firstName" placeholder="First Name" onChange={handleChange} onBlur={handleBlur} className="w-1/3" />
+        <Input name="firstName" placeholder="First Name" onChange={handleChange} className="w-1/3" />
         <Input name="middleName" placeholder="Middle Name" onChange={handleChange} className="w-1/3" />
-        <Input name="lastName" placeholder="Last Name" onChange={handleChange} onBlur={handleBlur} className="w-1/3" />
+        <Input name="lastName" placeholder="Last Name" onChange={handleChange} className="w-1/3" />
       </div>
       {renderError("firstName")}
       {renderError("lastName")}
 
-      <Input name="address" placeholder="Address" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
+      <Input name="address" placeholder="Address" onChange={handleChange} className="mb-1" />
       {renderError("address")}
 
       <Select
         value={formData.gender || ""}
-        onValueChange={(val) => {
-          setFormData(prev => ({ ...prev, gender: val }));
-          setErrors(prev => ({ ...prev, gender: "" }));
-        }}
+        onValueChange={(val) => setFormData((prev) => ({ ...prev, gender: val }))}
       >
         <SelectTrigger className="w-full mb-1">
           <SelectValue placeholder="Select Sex" />
@@ -176,57 +174,70 @@ export default function RegistrationForm() {
       </Select>
       {renderError("gender")}
 
-      <Input name="mobile_number" placeholder="Mobile Number" type="number" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
+      <Input name="mobile_number" placeholder="Mobile Number" type="text" onChange={handleChange} className="mb-1" />
       {renderError("mobile_number")}
     </>
   );
 
   const patientFields = role === "patient" && (
     <>
-      <Input name="age" placeholder="Age" type="number" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
+      <Input name="age" placeholder="Age" type="number" onChange={handleChange} className="mb-1" />
       {renderError("age")}
-
-      <Input name="height" placeholder="Height (cm)" type="number" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
+      <Input name="height" placeholder="Height (cm)" type="number" onChange={handleChange} className="mb-1" />
       {renderError("height")}
-
-      <Input name="weight" placeholder="Weight (kg)" type="number" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
+      <Input name="weight" placeholder="Weight (kg)" type="number" onChange={handleChange} className="mb-1" />
       {renderError("weight")}
-
-      <Input name="emergency_contact_name" placeholder="Emergency Contact Name" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
+      <Input name="emergency_contact_name" placeholder="Emergency Contact Name" onChange={handleChange} className="mb-1" />
       {renderError("emergency_contact_name")}
-
-      <Input name="emergency_contact_number" placeholder="Emergency Contact Number" type="number" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
+      <Input name="emergency_contact_number" placeholder="Emergency Contact Number" type="text" onChange={handleChange} className="mb-1" />
       {renderError("emergency_contact_number")}
-
-      <Input name="emergency_contact_address" placeholder="Emergency Contact Address" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
+      <Input name="emergency_contact_address" placeholder="Emergency Contact Address" onChange={handleChange} className="mb-1" />
       {renderError("emergency_contact_address")}
 
       <Select
-        value={formData.caregiver?.id?.toString() || ""}
-        onValueChange={(val) => {
-          setFormData((prev) => ({
-            ...prev,
-            caregiver: { id: parseInt(val, 10) },
-          }));
-        }}
+        value={formData.caregiver?.id ? formData.caregiver.id.toString() : ""}
+        onValueChange={(val) =>
+          setFormData((prev) => ({ ...prev, caregiver: { id: parseInt(val, 10) } }))
+        }
       >
         <SelectTrigger className="w-full mb-1">
           <SelectValue placeholder="Select Caregiver" />
         </SelectTrigger>
         <SelectContent>
-          {caregivers.map((c) => (
-            <SelectItem key={c.id} value={c.id.toString()}>
-              {c.first_name} {c.last_name}
-            </SelectItem>
-          ))}
+          {caregiversLoading ? (
+            <SelectItem disabled value="loading">Loading caregivers...</SelectItem>
+          ) : caregivers.length > 0 ? (
+            caregivers.map((c) => (
+              <SelectItem key={c.id} value={c.id.toString()}>
+                Caregiver #{c.id}: {c.first_name} {c.last_name}
+              </SelectItem>
+            ))
+          ) : (
+            <SelectItem disabled value="none">No caregivers found</SelectItem>
+          )}
         </SelectContent>
       </Select>
+      {renderError("caregiver")}
     </>
   );
 
   return (
     <div>
       <NavBar />
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant="outline" className="absolute top-4 right-4 z-10">Menu</Button>
+        </SheetTrigger>
+        <SheetContent side="right">
+          <SheetTitle>Menu</SheetTitle>
+          <SheetDescription className="mb-4">Navigation panel</SheetDescription>
+          <ul className="space-y-2">
+            <li><Link href="/" className="text-blue-500">Home</Link></li>
+            <li><Link href="/about" className="text-blue-500">About</Link></li>
+          </ul>
+        </SheetContent>
+      </Sheet>
+
       <div className="flex justify-center items-center min-h-screen p-4 bg-gray-100">
         <Card className="w-full max-w-md p-4">
           <CardContent>
@@ -251,24 +262,23 @@ export default function RegistrationForm() {
               </Button>
             </form>
 
-            <p className="mt-4 text-sm text-center">
+            <div className="mt-4 text-sm text-center">
               Already have an account?{" "}
               <Link href="/" className="text-blue-600 underline">
                 Login here
               </Link>
-            </p>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
-          <DialogTitle>
-            <VisuallyHidden>Registration Successful</VisuallyHidden>
-          </DialogTitle>
+          <DialogTitle className="sr-only">Registration Successful</DialogTitle>
           <DialogDescription>
             <div className="mt-2 text-lg font-semibold">
-              Your generated username is: <span className="text-blue-600">{generatedUsername}</span>
+              Your generated username is:{" "}
+              <span className="text-blue-600">{generatedUsername}</span>
             </div>
           </DialogDescription>
         </DialogContent>
