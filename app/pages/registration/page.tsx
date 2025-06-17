@@ -14,19 +14,14 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetTrigger,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
 import NavBar from "@/components/NavBar/NavBar";
 
-const Dialog = dynamic(() => import("@/components/ui/dialog").then((mod) => mod.Dialog), { ssr: false });
-const DialogContent = dynamic(() => import("@/components/ui/dialog").then((mod) => mod.DialogContent), { ssr: false });
-const DialogTitle = dynamic(() => import("@/components/ui/dialog").then((mod) => mod.DialogTitle), { ssr: false });
-const DialogDescription = dynamic(() => import("@/components/ui/dialog").then((mod) => mod.DialogDescription), { ssr: false });
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export default function RegistrationForm() {
   const [role, setRole] = useState("admin");
@@ -50,6 +45,7 @@ export default function RegistrationForm() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
   const [showDialog, setShowDialog] = useState(false);
   const [generatedUsername, setGeneratedUsername] = useState("");
   const [loading, setLoading] = useState(false);
@@ -77,6 +73,20 @@ export default function RegistrationForm() {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name } = e.target;
+    setTouchedFields((prev) => ({ ...prev, [name]: true }));
+  };
+
+  const handleConfirmPasswordBlur = () => {
+    setTouchedFields((prev) => ({ ...prev, confirmPassword: true }));
+    if (formData.confirmPassword !== formData.password) {
+      setErrors((prev) => ({ ...prev, confirmPassword: "Passwords do not match" }));
+    } else {
+      setErrors((prev) => ({ ...prev, confirmPassword: "" }));
+    }
   };
 
   const validateForm = () => {
@@ -138,31 +148,44 @@ export default function RegistrationForm() {
   };
 
   const renderError = (field: string) =>
-    errors[field] && <p className="text-red-500 text-sm mb-1">{errors[field]}</p>;
+    touchedFields[field] && errors[field] ? (
+      <p className="text-red-500 text-sm mb-1">{errors[field]}</p>
+    ) : null;
 
   const commonFields = (
     <>
-      <Input name="email" placeholder="Email" onChange={handleChange} className="mb-1" />
+      <Input name="email" placeholder="Email" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
       {renderError("email")}
-      <Input name="password" placeholder="Password" type="password" onChange={handleChange} className="mb-1" />
+      <Input name="password" placeholder="Password" type="password" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
       {renderError("password")}
-      <Input name="confirmPassword" placeholder="Confirm Password" type="password" onChange={handleChange} className="mb-1" />
+      <Input
+        name="confirmPassword"
+        placeholder="Confirm Password"
+        type="password"
+        onChange={handleChange}
+        onBlur={handleConfirmPasswordBlur}
+        className="mb-1"
+      />
       {renderError("confirmPassword")}
 
       <div className="flex gap-2 mb-1">
-        <Input name="firstName" placeholder="First Name" onChange={handleChange} className="w-1/3" />
+        <Input name="firstName" placeholder="First Name" onChange={handleChange} onBlur={handleBlur} className="w-1/3" />
         <Input name="middleName" placeholder="Middle Name" onChange={handleChange} className="w-1/3" />
-        <Input name="lastName" placeholder="Last Name" onChange={handleChange} className="w-1/3" />
+        <Input name="lastName" placeholder="Last Name" onChange={handleChange} onBlur={handleBlur} className="w-1/3" />
       </div>
       {renderError("firstName")}
       {renderError("lastName")}
 
-      <Input name="address" placeholder="Address" onChange={handleChange} className="mb-1" />
+      <Input name="address" placeholder="Address" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
       {renderError("address")}
 
       <Select
         value={formData.gender || ""}
-        onValueChange={(val) => setFormData((prev) => ({ ...prev, gender: val }))}
+        onValueChange={(val) => {
+          setFormData((prev) => ({ ...prev, gender: val }));
+          setTouchedFields((prev) => ({ ...prev, gender: true }));
+          setErrors((prev) => ({ ...prev, gender: "" }));
+        }}
       >
         <SelectTrigger className="w-full mb-1">
           <SelectValue placeholder="Select Sex" />
@@ -174,31 +197,32 @@ export default function RegistrationForm() {
       </Select>
       {renderError("gender")}
 
-      <Input name="mobile_number" placeholder="Mobile Number" type="text" onChange={handleChange} className="mb-1" />
+      <Input name="mobile_number" placeholder="Mobile Number" type="text" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
       {renderError("mobile_number")}
     </>
   );
 
   const patientFields = role === "patient" && (
     <>
-      <Input name="age" placeholder="Age" type="number" onChange={handleChange} className="mb-1" />
+      <Input name="age" placeholder="Age" type="number" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
       {renderError("age")}
-      <Input name="height" placeholder="Height (cm)" type="number" onChange={handleChange} className="mb-1" />
+      <Input name="height" placeholder="Height (cm)" type="number" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
       {renderError("height")}
-      <Input name="weight" placeholder="Weight (kg)" type="number" onChange={handleChange} className="mb-1" />
+      <Input name="weight" placeholder="Weight (kg)" type="number" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
       {renderError("weight")}
-      <Input name="emergency_contact_name" placeholder="Emergency Contact Name" onChange={handleChange} className="mb-1" />
+      <Input name="emergency_contact_name" placeholder="Emergency Contact Name" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
       {renderError("emergency_contact_name")}
-      <Input name="emergency_contact_number" placeholder="Emergency Contact Number" type="text" onChange={handleChange} className="mb-1" />
+      <Input name="emergency_contact_number" placeholder="Emergency Contact Number" type="text" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
       {renderError("emergency_contact_number")}
-      <Input name="emergency_contact_address" placeholder="Emergency Contact Address" onChange={handleChange} className="mb-1" />
+      <Input name="emergency_contact_address" placeholder="Emergency Contact Address" onChange={handleChange} onBlur={handleBlur} className="mb-1" />
       {renderError("emergency_contact_address")}
 
       <Select
         value={formData.caregiver?.id ? formData.caregiver.id.toString() : ""}
-        onValueChange={(val) =>
-          setFormData((prev) => ({ ...prev, caregiver: { id: parseInt(val, 10) } }))
-        }
+        onValueChange={(val) => {
+          setFormData((prev) => ({ ...prev, caregiver: { id: parseInt(val, 10) } }));
+          setTouchedFields((prev) => ({ ...prev, caregiver: true }));
+        }}
       >
         <SelectTrigger className="w-full mb-1">
           <SelectValue placeholder="Select Caregiver" />
@@ -224,19 +248,6 @@ export default function RegistrationForm() {
   return (
     <div>
       <NavBar />
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="outline" className="absolute top-4 right-4 z-10">Menu</Button>
-        </SheetTrigger>
-        <SheetContent side="right">
-          <SheetTitle>Menu</SheetTitle>
-          <SheetDescription className="mb-4">Navigation panel</SheetDescription>
-          <ul className="space-y-2">
-            <li><Link href="/" className="text-blue-500">Home</Link></li>
-            <li><Link href="/about" className="text-blue-500">About</Link></li>
-          </ul>
-        </SheetContent>
-      </Sheet>
 
       <div className="flex justify-center items-center min-h-screen p-4 bg-gray-100">
         <Card className="w-full max-w-md p-4">
@@ -274,15 +285,14 @@ export default function RegistrationForm() {
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
-          <DialogTitle className="sr-only">Registration Successful</DialogTitle>
+          <DialogTitle>Registration Successful</DialogTitle>
           <DialogDescription>
-            <div className="mt-2 text-lg font-semibold">
-              Your generated username is:{" "}
-              <span className="text-blue-600">{generatedUsername}</span>
-            </div>
+            Your generated username is:{" "}
+            <span className="text-blue-600 font-semibold">{generatedUsername}</span>
           </DialogDescription>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
