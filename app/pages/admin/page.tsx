@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Admin = {
   id: number;
@@ -49,7 +50,7 @@ type Patient = {
   emergency_contact_name: string;
   emergency_contact_number: string;
   emergency_contact_address: string;
-  caregiver: { id: number };
+  caregiver: { id: number } | null;
 };
 
 type Caregiver = {
@@ -75,7 +76,9 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [caregiverName, setCaregiverName] = useState("");
+  const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
 
   useEffect(() => {
     fetch("http://localhost:8080/api/admins/users", { credentials: "include" })
@@ -89,6 +92,8 @@ export default function AdminPage() {
           })
         );
 
+        setCaregivers(data.caregivers);
+
         const merged: User[] = [
           ...data.admins.map((a: Admin) => ({ ...a, role: "admin" })),
           ...caregiversWithPatients,
@@ -100,41 +105,11 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedUser) {
-      console.log("=== Selected User ===");
-      console.log("ID:", selectedUser.id);
-      console.log("Username:", selectedUser.username);
-      console.log("Role:", selectedUser.role);
-      console.log("First Name:", selectedUser.firstName);
-      console.log("Middle Name:", selectedUser.middleName);
-      console.log("Last Name:", selectedUser.lastName);
-      console.log("Gender:", selectedUser.gender);
-      console.log("Address:", selectedUser.address);
-      console.log("Mobile Number:", selectedUser.mobile_number);
-
-      if ("emergency_contact_name" in selectedUser) {
-        console.log("Emergency Contact Name:", selectedUser.emergency_contact_name);
-        console.log("Emergency Contact Number:", selectedUser.emergency_contact_number);
-        console.log("Emergency Contact Address:", selectedUser.emergency_contact_address);
-        console.log("Age:", selectedUser.age);
-        console.log("Height:", selectedUser.height);
-        console.log("Weight:", selectedUser.weight);
-        console.log("Caregiver:", selectedUser.caregiver);
-        console.log("Caregiver ID:", selectedUser.caregiver?.id ?? "None");
-      }
-
-      if ("patients" in selectedUser) {
-        console.log("Assigned Patients:", selectedUser.patients.map(p => `${p.firstName} ${p.lastName} (ID: ${p.id})`).join(", "));
-      }
-
-      console.log("=====================");
-    }
-
     if (selectedUser && "caregiver" in selectedUser && selectedUser.caregiver?.id) {
       fetch(`http://localhost:8080/api/caregivers/${selectedUser.caregiver.id}`, {
         credentials: "include",
         headers: {
-          Accept: "application/json", // ✅ MUST be set to avoid 406 error
+          Accept: "application/json",
         },
       })
         .then((res) => {
@@ -164,13 +139,70 @@ export default function AdminPage() {
   };
 
   const handlePasswordChange = () => {
-    alert(`Password changed to: ${newPassword}`);
-    setNewPassword("");
+    if (newPassword !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+    if (!selectedUser) return;
+    fetch(`http://localhost:8080/api/${selectedUser.role}s/${selectedUser.id}/change-password`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ newPassword }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to change password");
+        return res.json();
+      })
+      .then(() => {
+        alert("Password changed successfully");
+        setNewPassword("");
+        setConfirmPassword("");
+      })
+      .catch((err) => alert(err.message));
   };
 
   const handleSaveChanges = () => {
-    alert("User information saved.");
+    if (!selectedUser) return;
+
+    if (selectedUser.role === "patient") {
+      const patientUser = selectedUser as Patient;
+
+      fetch(`http://localhost:8080/api/patients/${patientUser.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(patientUser),
+      })
+        .then((res) => res.json())
+        .then(() => alert("User information updated."))
+        .catch((err) => alert("Update failed: " + err));
+
+      if (patientUser.caregiver?.id) {
+        fetch(`http://localhost:8080/api/patients/${patientUser.id}/assign-caregiver/${patientUser.caregiver.id}`, {
+          method: "PUT",
+          credentials: "include",
+        })
+          .then((res) => res.json())
+          .then(() => alert("Caregiver reassigned."))
+          .catch((err) => alert("Failed to reassign caregiver: " + err));
+      }
+    }
+
     setIsEditingDetails(false);
+  };
+
+  const handleDelete = (user: User) => {
+    if (!confirm("Are you sure you want to delete this user?")) return;
+    fetch(`http://localhost:8080/api/${user.role}s/${user.id}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+      .then(() => {
+        setAllUsers((prev) => prev.filter((u) => !(u.id === user.id && u.role === user.role)));
+        setSelectedUser(null);
+      })
+      .catch((err) => alert("Delete failed: " + err));
   };
 
   const renderUserInfo = (user: User) => {
@@ -208,10 +240,27 @@ export default function AdminPage() {
             )}
             <div>
               <Label>Caregiver:</Label>
-              <Input
-                value={caregiverName || "Loading..."}
-                disabled
-              />
+              {isEditingDetails ? (
+                <Select
+                  onValueChange={(value) =>
+                    setSelectedUser({ ...user, caregiver: { id: Number(value) } } as Patient)
+                  }
+                  defaultValue={user.caregiver?.id.toString() || ""}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select caregiver" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {caregivers.map((c) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.firstName} {c.lastName} (ID: {c.id})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={caregiverName || "None"} disabled />
+              )}
             </div>
           </>
         )}
@@ -293,7 +342,7 @@ export default function AdminPage() {
                               variant="destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                alert("Delete not implemented yet");
+                                handleDelete(user);
                               }}
                             >
                               Remove
@@ -330,6 +379,13 @@ export default function AdminPage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password"
+                  />
+                  <Label>Confirm Password:</Label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
                   />
                   <Button onClick={handlePasswordChange}>Change Password</Button>
                 </div>
