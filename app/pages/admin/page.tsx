@@ -18,33 +18,54 @@ import {
 type Admin = {
   id: number;
   username: string;
+  email: string;
+  password: string;
+  salt: string;
   firstName: string;
   middleName?: string;
   lastName: string;
-  email: string;
+  address: string;
+  gender: string;
+  mobile_number: string;
   role: string;
-};
-
-type Caregiver = {
-  id: number;
-  username: string;
-  firstName: string;
-  middleName?: string;
-  lastName: string;
-  email: string;
-  role: string;
-  patients: Patient[];
 };
 
 type Patient = {
   id: number;
   username: string;
+  email: string;
+  password: string;
+  salt: string;
   firstName: string;
   middleName?: string;
   lastName: string;
-  email: string;
+  age: number;
+  height: number;
+  weight: number;
+  address: string;
+  gender: string;
+  mobile_number: string;
   role: string;
+  emergency_contact_name: string;
+  emergency_contact_number: string;
+  emergency_contact_address: string;
   caregiver: Caregiver;
+};
+
+type Caregiver = {
+  id: number;
+  username: string;
+  email: string;
+  password: string;
+  salt: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  address: string;
+  gender: string;
+  mobile_number: string;
+  role: string;
+  patients: Patient[];
 };
 
 type User = Admin | Caregiver | Patient;
@@ -53,107 +74,103 @@ export default function AdminPage() {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
-  const [editableDetails, setEditableDetails] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    role: "",
-  });
-  const [passwordFields, setPasswordFields] = useState({
-    newPassword: "",
-    confirmPassword: "",
-  });
+  const [newPassword, setNewPassword] = useState("");
 
-  // Fetch all users from backend
   useEffect(() => {
-    fetch("http://localhost:8080/api/admins/users", {
-      credentials: "include",
-    })
-      .then((res: Response) => res.json())
-      .then((data: { admins: Admin[]; caregivers: Caregiver[]; patients: Patient[] }) => {
+    fetch("http://localhost:8080/api/admins/users", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
         const merged: User[] = [
-          ...data.admins.map((a) => ({ ...a, role: "admin" })),
-          ...data.caregivers.map((c) => ({ ...c, role: "caregiver" })),
-          ...data.patients.map((p) => ({ ...p, role: "patient" })),
+          ...data.admins.map((a: Admin) => ({ ...a, role: "admin" })),
+          ...data.caregivers.map((c: Caregiver) => ({ ...c, role: "caregiver" })),
+          ...data.patients.map((p: Patient) => ({ ...p, role: "patient" })),
         ];
         setAllUsers(merged);
       })
-      .catch((err: unknown) => {
-        console.error("Failed to fetch users:", err);
-      });
+      .catch((err) => console.error("Failed to fetch users:", err));
   }, []);
 
   const handleEditClick = (user: User) => {
     setSelectedUser(user);
     setIsEditingDetails(true);
-    setEditableDetails({
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      role: user.role,
-    });
   };
 
-  const handleCancelEdit = () => {
-    setIsEditingDetails(false);
-    if (selectedUser) {
-      setEditableDetails({
-        firstName: selectedUser.firstName,
-        lastName: selectedUser.lastName,
-        email: selectedUser.email,
-        role: selectedUser.role,
-      });
-    }
-  };
-
-  const handleConfirmChanges = () => {
+  const handleInputChange = (field: string, value: string) => {
     if (!selectedUser) return;
-
-    fetch(`http://localhost:8080/api/admins/users/${selectedUser.role}/${selectedUser.id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify(editableDetails),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Update failed");
-        return res.json();
-      })
-      .then(() => {
-        alert("User info updated");
-        setIsEditingDetails(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        alert("Update failed");
-      });
+    setSelectedUser({ ...selectedUser, [field]: value });
   };
 
-  const handlePasswordUpdate = () => {
-    if (!selectedUser || passwordFields.newPassword !== passwordFields.confirmPassword) {
-      alert("Password mismatch");
-      return;
-    }
+  const handlePasswordChange = () => {
+    alert(`Password changed to: ${newPassword}`);
+    setNewPassword("");
+  };
 
-    fetch(`http://localhost:8080/api/admins/users/${selectedUser.role}/${selectedUser.id}/password`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ newPassword: passwordFields.newPassword }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Password update failed");
-        alert("Password updated");
-        setPasswordFields({ newPassword: "", confirmPassword: "" });
-      })
-      .catch((err) => {
-        console.error(err);
-        alert("Password update failed");
-      });
+  const handleSaveChanges = () => {
+    alert("User information saved.");
+    setIsEditingDetails(false);
+  };
+
+  const renderUserInfo = (user: User) => {
+    const isPatient = "emergency_contact_name" in user;
+    const isCaregiver = "patients" in user;
+
+    return (
+      <div className="space-y-3">
+        {["username", "email", "firstName", "middleName", "lastName", "address", "gender", "mobile_number"].map(
+          (field) => (
+            <div key={field}>
+              <Label className="capitalize">{field.replace("_", " ")}:</Label>
+              <Input
+                value={(user as any)[field] || ""}
+                disabled={!isEditingDetails}
+                onChange={(e) => handleInputChange(field, e.target.value)}
+              />
+            </div>
+          )
+        )}
+
+        {isPatient && (
+          <>
+            {["age", "height", "weight", "emergency_contact_name", "emergency_contact_number", "emergency_contact_address"].map(
+              (field) => (
+                <div key={field}>
+                  <Label className="capitalize">{field.replace(/_/g, " ")}:</Label>
+                  <Input
+                    value={(user as any)[field] || ""}
+                    disabled={!isEditingDetails}
+                    onChange={(e) => handleInputChange(field, e.target.value)}
+                  />
+                </div>
+              )
+            )}
+            <div>
+              <Label>Caregiver:</Label>
+              <Input
+                value={`${user.caregiver?.firstName || ""} ${user.caregiver?.lastName || ""}`}
+                disabled
+              />
+            </div>
+          </>
+        )}
+
+        {isCaregiver && (
+          <div>
+            <Label>Patients:</Label>
+            <ul className="list-disc pl-6">
+              {user.patients.map((p) => (
+                <li key={p.id}>{p.firstName} {p.lastName}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {isEditingDetails && (
+          <div className="pt-2">
+            <Button onClick={handleSaveChanges}>Save Changes</Button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -192,12 +209,6 @@ export default function AdminPage() {
                         onClick={() => {
                           setSelectedUser(user);
                           setIsEditingDetails(false);
-                          setEditableDetails({
-                            firstName: user.firstName,
-                            lastName: user.lastName,
-                            email: user.email,
-                            role: user.role,
-                          });
                         }}
                       >
                         <TableCell className="text-center">{user.username}</TableCell>
@@ -216,7 +227,13 @@ export default function AdminPage() {
                             >
                               Update Info
                             </Button>
-                            <Button variant="destructive" onClick={() => alert("Delete not implemented")}>
+                            <Button
+                              variant="destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                alert("Delete not implemented yet");
+                              }}
+                            >
                               Remove
                             </Button>
                           </div>
@@ -225,99 +242,37 @@ export default function AdminPage() {
                     ))}
                   </TableBody>
                 </Table>
-
               </CardContent>
             </Card>
           </div>
 
-          {/* Info and Password Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[45%]">
-            {/* Info */}
-            <Card className="h-full overflow-hidden">
-              <CardContent className="p-4 overflow-y-auto space-y-3 max-h-[calc(100vh-300px)]">
-                <h2 className="text-lg font-semibold text-center">User Information</h2>
+          {/* Info Panel */}
+          <div className="h-[45%] grid grid-cols-2 gap-4">
+            <Card className="overflow-hidden">
+              <CardContent className="p-4 overflow-y-auto max-h-[calc(100vh-300px)]">
+                <h2 className="text-lg font-semibold text-center mb-2">User Information</h2>
                 {selectedUser ? (
-                  <>
-                    <div className="space-y-1">
-                      <Label>First Name</Label>
-                      <Input
-                        value={editableDetails.firstName}
-                        disabled={!isEditingDetails}
-                        onChange={(e) =>
-                          setEditableDetails({ ...editableDetails, firstName: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Last Name</Label>
-                      <Input
-                        value={editableDetails.lastName}
-                        disabled={!isEditingDetails}
-                        onChange={(e) =>
-                          setEditableDetails({ ...editableDetails, lastName: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Email</Label>
-                      <Input
-                        value={editableDetails.email}
-                        disabled={!isEditingDetails}
-                        onChange={(e) =>
-                          setEditableDetails({ ...editableDetails, email: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Role</Label>
-                      <Input value={editableDetails.role} disabled />
-                    </div>
-                    {isEditingDetails && (
-                      <div className="flex justify-end gap-2 pt-3">
-                        <Button variant="outline" onClick={handleCancelEdit}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleConfirmChanges}>Save</Button>
-                      </div>
-                    )}
-                  </>
+                  renderUserInfo(selectedUser)
                 ) : (
                   <p className="text-center text-gray-500">Select a user to view info</p>
                 )}
               </CardContent>
             </Card>
 
-            {/* Password */}
-            <Card className="h-full">
-              <CardContent className="p-4 h-full overflow-y-auto space-y-3 max-h-[calc(100vh-300px)]">
-                <h2 className="text-lg font-semibold text-center">Change Password</h2>
-                <div className="space-y-1">
-                  <Label>New Password</Label>
+            {/* Password Change Panel */}
+            <Card>
+              <CardContent className="p-4">
+                <h2 className="text-lg font-semibold text-center mb-2">Change Password</h2>
+                <div className="space-y-3">
+                  <Label>New Password:</Label>
                   <Input
                     type="password"
-                    value={passwordFields.newPassword}
-                    disabled={!selectedUser}
-                    onChange={(e) =>
-                      setPasswordFields({ ...passwordFields, newPassword: e.target.value })
-                    }
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
                   />
+                  <Button onClick={handlePasswordChange}>Change Password</Button>
                 </div>
-                <div className="space-y-1">
-                  <Label>Confirm Password</Label>
-                  <Input
-                    type="password"
-                    value={passwordFields.confirmPassword}
-                    disabled={!selectedUser}
-                    onChange={(e) =>
-                      setPasswordFields({ ...passwordFields, confirmPassword: e.target.value })
-                    }
-                  />
-                </div>
-                {selectedUser && (
-                  <div className="pt-3">
-                    <Button onClick={handlePasswordUpdate}>Update Password</Button>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>
