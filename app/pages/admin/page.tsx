@@ -14,7 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useRouter } from "next/navigation";
 
 type Admin = {
   id: number;
@@ -51,6 +58,7 @@ type Patient = {
   emergency_contact_number: string;
   emergency_contact_address: string;
   caregiver: { id: number } | null;
+  imageUrl?: string;
 };
 
 type Caregiver = {
@@ -72,6 +80,7 @@ type Caregiver = {
 type User = Admin | Caregiver | Patient;
 
 export default function AdminPage() {
+  const [isOnline, setIsOnline] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
@@ -79,6 +88,20 @@ export default function AdminPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [caregiverName, setCaregiverName] = useState("");
   const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
+  const router = useRouter();
+
+  useEffect(() => {
+    const username = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("username="))
+      ?.split("=")[1];
+    if (!username) {
+      setIsOnline(false);
+      router.push("/");
+    } else {
+      setIsOnline(true);
+    }
+  }, []);
 
   useEffect(() => {
     fetch("http://localhost:8080/api/admins/users", { credentials: "include" })
@@ -226,18 +249,46 @@ export default function AdminPage() {
 
         {isPatient && (
           <>
-            {["age", "height", "weight", "emergency_contact_name", "emergency_contact_number", "emergency_contact_address"].map(
-              (field) => (
-                <div key={field}>
-                  <Label className="capitalize">{field.replace(/_/g, " ")}:</Label>
-                  <Input
-                    value={(user as any)[field] || ""}
-                    disabled={!isEditingDetails}
-                    onChange={(e) => handleInputChange(field, e.target.value)}
-                  />
-                </div>
-              )
+            {user.imageUrl && (
+              <div>
+                <Label>Profile Picture:</Label>
+                <img
+                  src={user.imageUrl}
+                  alt="Patient"
+                  className="w-32 h-32 object-cover rounded-full"
+                />
+              </div>
             )}
+
+            {isEditingDetails && (
+              <div>
+                <Label>Image URL:</Label>
+                <Input
+                  value={(user as any).imageUrl || ""}
+                  onChange={(e) => handleInputChange("imageUrl", e.target.value)}
+                  disabled={!isEditingDetails}
+                />
+              </div>
+            )}
+
+            {[
+              "age",
+              "height",
+              "weight",
+              "emergency_contact_name",
+              "emergency_contact_number",
+              "emergency_contact_address",
+            ].map((field) => (
+              <div key={field}>
+                <Label className="capitalize">{field.replace(/_/g, " ")}:</Label>
+                <Input
+                  value={(user as any)[field] || ""}
+                  disabled={!isEditingDetails}
+                  onChange={(e) => handleInputChange(field, e.target.value)}
+                />
+              </div>
+            ))}
+
             <div>
               <Label>Caregiver:</Label>
               {isEditingDetails ? (
@@ -270,7 +321,9 @@ export default function AdminPage() {
             <Label>Patients:</Label>
             <ul className="list-disc pl-6">
               {user.patients.map((p) => (
-                <li key={p.id}>{p.firstName} {p.lastName}</li>
+                <li key={p.id}>
+                  {p.firstName} {p.lastName}
+                </li>
               ))}
             </ul>
           </div>
@@ -287,10 +340,9 @@ export default function AdminPage() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <NavBar />
-
+      <NavBar isOnline={isOnline} />
       <div className="flex flex-col flex-grow bg-gray-100 px-4 pt-4 pb-4 overflow-hidden">
-        <h1 className="text-3xl font-bold text-center mb-4">Welcome Administrator</h1>
+        <h1 className="text-3xl font-bold text-center mb-4 text-black dark:text-black">Welcome Administrator</h1>
 
         <div className="flex flex-col flex-grow overflow-hidden gap-4">
           <div className="flex-grow min-h-0">
