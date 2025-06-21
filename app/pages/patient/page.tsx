@@ -63,7 +63,7 @@ interface OutageData {
   timestamp: string;
 }
 
-export default function ClientPage() {
+export default function PatientPage() {
   const [isOnline, setIsOnline] = useState(false);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [caregiver, setCaregiver] = useState<Caregiver | null>(null);
