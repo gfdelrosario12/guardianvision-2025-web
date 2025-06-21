@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
@@ -15,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import NavBar from "@/components/NavBar/NavBar";
-
 import {
   Dialog,
   DialogContent,
@@ -42,6 +40,8 @@ export default function RegistrationForm() {
     emergency_contact_number: "",
     emergency_contact_address: "",
     caregiver: { id: 0 },
+    imageFile: null,
+    imagePreview: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -52,6 +52,20 @@ export default function RegistrationForm() {
   const [caregivers, setCaregivers] = useState<{ id: number; first_name: string; last_name: string }[]>([]);
   const [caregiversLoading, setCaregiversLoading] = useState(false);
   const router = useRouter();
+
+  // Track online status for NavBar
+  const [isOnline, setIsOnline] = useState(true);
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    setIsOnline(navigator.onLine);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (role === "patient") {
@@ -109,11 +123,22 @@ export default function RegistrationForm() {
       if (!/^\d+$/.test(formData.emergency_contact_number)) newErrors.emergency_contact_number = "Valid emergency contact number is required";
       if (!formData.emergency_contact_address) newErrors.emergency_contact_address = "Emergency contact address is required";
       if (!formData.caregiver?.id || formData.caregiver.id === 0) newErrors.caregiver = "Caregiver is required";
+      if (!formData.imageFile || !(formData.imageFile instanceof File)) {
+        newErrors.imageFile = "Profile picture is required.";
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  const toBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (err) => reject(err);
+    });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -127,10 +152,20 @@ export default function RegistrationForm() {
 
     try {
       setLoading(true);
+      let imageUrlBase64 = "";
+      if (formData.imageFile instanceof File) {
+        imageUrlBase64 = await toBase64(formData.imageFile);
+      }
+
+      const dataToSend = {
+        ...formData,
+        imageUrl: imageUrlBase64 || undefined,
+      };
+
       const response = await fetch(`http://localhost:8080${endpointMap[role]}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSend),
       });
 
       const text = await response.text();
@@ -242,12 +277,39 @@ export default function RegistrationForm() {
         </SelectContent>
       </Select>
       {renderError("caregiver")}
+
+      <div className="mb-2">
+        <label className="block mb-1 font-medium">Profile Picture (For Patients) *</label>
+        <Input
+          type="file"
+          accept="image/*"
+          required
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              setFormData((prev) => ({
+                ...prev,
+                imageFile: file,
+                imagePreview: URL.createObjectURL(file),
+              }));
+              setErrors((prev) => ({ ...prev, imageFile: "" }));
+              setTouchedFields((prev) => ({ ...prev, imageFile: true }));
+            }
+          }}
+        />
+        {touchedFields.imageFile && !formData.imageFile && (
+          <p className="text-red-500 text-sm mb-1">Profile picture is required.</p>
+        )}
+        {formData.imagePreview && (
+          <img src={formData.imagePreview} alt="Preview" className="mt-2 w-24 h-24 object-cover rounded-full" />
+        )}
+      </div>
     </>
   );
 
   return (
     <div>
-      <NavBar />
+      <NavBar isOnline={isOnline} />
 
       <div className="flex justify-center items-center min-h-screen p-4 bg-gray-100">
         <Card className="w-full max-w-md p-4">
@@ -292,7 +354,6 @@ export default function RegistrationForm() {
           </DialogDescription>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

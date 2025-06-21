@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import NavBar from "@/components/NavBar/NavBar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -12,29 +12,142 @@ import {
   CarouselPrevious,
   CarouselNext,
 } from "@/components/ui/carousel";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
-// Dummy data
-const patients = Array.from({ length: 18 }).map((_, index) => ({
-  id: index + 1,
-  firstName: `Patient${index + 1}`,
-  lastName: `Lastname${index + 1}`,
-  imageUrl: `https://randomuser.me/api/portraits/${index % 2 === 0 ? "women" : "men"}/${index + 10}.jpg`,
-}));
+interface Patient {
+  id: number;
+  username: string;
+  email: string;
+  password: string;
+  salt: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  age: number;
+  height: number;
+  weight: number;
+  address: string;
+  gender: string;
+  mobile_number: string;
+  role: string;
+  emergency_contact_name: string;
+  emergency_contact_number: string;
+  emergency_contact_address: string;
+  imageUrl?: string;
+  caregiver: { id: number } | null;
+}
+
+interface AlertData {
+  id: number;
+  videoUrl: string;
+  lastKnownLocation: string;
+  timestamp: string;
+}
+
+interface OutageData {
+  id: number;
+  videoUrl: string;
+  lastKnownLocation: string;
+  timestamp: string;
+}
 
 export default function CaregiverPage() {
-  const [selectedPatient, setSelectedPatient] = useState(patients[0]);
+  const [isOnline, setIsOnline] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [alerts, setAlerts] = useState<AlertData[]>([]);
+  const [outages, setOutages] = useState<OutageData[]>([]);
+
+  useEffect(() => {
+    const username = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("username="))
+      ?.split("=")[1];
+    setIsOnline(!!username);
+  }, []);
+
+  useEffect(() => {
+    const fetchPatientsFromMe = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/api/caregivers/me", {
+          credentials: "include",
+        });
+        const data = await res.json();
+        const fetchedPatients: Patient[] = data.patients || [];
+        setPatients(fetchedPatients);
+        if (fetchedPatients.length > 0) {
+          setSelectedPatient(fetchedPatients[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching caregiver or patients:", error);
+      }
+    };
+
+    fetchPatientsFromMe();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPatient) return;
+
+    console.log("Selected patient:", selectedPatient); // ✅ Add here
+
+    const fetchData = async () => {
+      try {
+        const [alertsRes, outagesRes] = await Promise.all([
+          fetch(`http://localhost:8080/api/alerts/patient/${selectedPatient.id}`, {
+            credentials: "include",
+          }),
+          fetch(`http://localhost:8080/api/outages/patient/${selectedPatient.id}`, {
+            credentials: "include",
+          }),
+        ]);
+
+        const alertsJson = await alertsRes.json();
+        const outagesJson = await outagesRes.json();
+
+        console.log("Fetched alerts:", alertsJson);
+        console.log("Fetched outages:", outagesJson);
+
+        const alertsData = alertsJson.map((item: any) => ({
+          id: item.id,
+          timestamp: item.timestamp,
+          videoUrl: item.video_url,
+          lastKnownLocation: item.last_known_location,
+        }));
+
+        const outagesData = outagesJson.map((item: any) => ({
+          id: item.id,
+          timestamp: item.timestamp,
+          videoUrl: item.video_url,
+          lastKnownLocation: item.last_known_location,
+        }));
+
+        setAlerts(alertsData);
+        setOutages(outagesData);
+      } catch (err) {
+        console.error("Error fetching alerts or outages:", err);
+      }
+    };
+
+    fetchData();
+  }, [selectedPatient]);
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <NavBar />
+      <NavBar isOnline={isOnline} />
 
-      {/* Welcome Section */}
       <div className="px-6 pt-6">
-        <h1 className="text-2xl font-bold mb-1">Welcome Guardian - NAME!</h1>
-        <p className="mb-4">Your Patients:</p>
+        <h1 className="text-2xl font-bold mb-1 text-black dark:text-black">Welcome Guardian!</h1>
+        <p className="mb-4 text-black dark:text-black">Your Patients:</p>
       </div>
 
-      {/* Carousel */}
       <div className="px-6 mb-4">
         <Carousel opts={{ align: "start" }} className="w-full max-w-6xl mx-auto">
           <CarouselContent>
@@ -45,18 +158,17 @@ export default function CaregiverPage() {
               >
                 <Card
                   onClick={() => setSelectedPatient(patient)}
-                  className={`cursor-pointer ${
-                    selectedPatient.id === patient.id
-                      ? "border-blue-500 border-2"
-                      : ""
-                  }`}
+                  className={`cursor-pointer ${selectedPatient?.id === patient.id ? "border-blue-500 border-2" : ""
+                    }`}
                 >
                   <CardContent className="flex items-center gap-4 px-3">
-                    <img
-                      src={patient.imageUrl}
-                      alt={`${patient.firstName} ${patient.lastName}`}
-                      className="w-14 h-14 rounded-full object-cover"
-                    />
+                    {patient.imageUrl && (
+                      <img
+                        src={patient.imageUrl}
+                        alt={`${patient.firstName} ${patient.lastName}`}
+                        className="w-14 h-14 rounded-full object-cover"
+                      />
+                    )}
                     <p className="text-sm font-medium text-left">
                       {patient.firstName} {patient.lastName}
                     </p>
@@ -70,44 +182,48 @@ export default function CaregiverPage() {
         </Carousel>
       </div>
 
-      {/* Two Column Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-6 pb-6 h-[calc(100vh-280px)]">
         {/* Left Column */}
         <div className="flex flex-col h-full space-y-4 min-h-0">
-          {/* Patient Info (Adjusted Height) */}
           <Card className="h-1/2 overflow-hidden">
             <CardContent className="p-4 h-full overflow-y-auto">
               <div className="space-y-2">
                 <h2 className="text-base font-semibold text-center">Patient Info</h2>
-                <div className="space-y-1">
-                  <Label>Full Name</Label>
-                  <Input
-                    type="text"
-                    value={`${selectedPatient.firstName} ${selectedPatient.lastName}`}
-                    disabled
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Age</Label>
-                  <Input type="text" value="72" disabled />
-                </div>
-                <div className="space-y-1">
-                  <Label>Address</Label>
-                  <Input type="text" value="123 Mabuhay St., QC, PH" disabled />
-                </div>
-                <div className="space-y-1">
-                  <Label>Medical Condition</Label>
-                  <Input type="text" value="Dementia" disabled />
-                </div>
-                <div className="space-y-1">
-                  <Label>Status</Label>
-                  <Input type="text" value="Monitored" disabled />
-                </div>
+                {selectedPatient && (
+                  <>
+                    <div>
+                      <Label>Profile Picture:</Label>
+                      <img
+                        src={selectedPatient.imageUrl}
+                        alt="Patient"
+                        className="w-32 h-32 object-cover rounded-full"
+                      />
+                    </div>
+                    {[
+                      { label: "Full Name", value: `${selectedPatient.firstName} ${selectedPatient.middleName || ""} ${selectedPatient.lastName}` },
+                      { label: "Username", value: selectedPatient.username },
+                      { label: "Email", value: selectedPatient.email },
+                      { label: "Gender", value: selectedPatient.gender },
+                      { label: "Age", value: selectedPatient.age.toString() },
+                      { label: "Height (cm)", value: selectedPatient.height.toString() },
+                      { label: "Weight (kg)", value: selectedPatient.weight.toString() },
+                      { label: "Mobile Number", value: selectedPatient.mobile_number },
+                      { label: "Address", value: selectedPatient.address },
+                      { label: "Emergency Contact Name", value: selectedPatient.emergency_contact_name },
+                      { label: "Emergency Contact Number", value: selectedPatient.emergency_contact_number },
+                      { label: "Emergency Contact Address", value: selectedPatient.emergency_contact_address },
+                    ].map((item, i) => (
+                      <div key={i} className="space-y-1">
+                        <Label>{item.label}</Label>
+                        <Input type="text" value={item.value} disabled />
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Recorded Outages */}
           <Card className="flex-1 min-h-0 overflow-hidden">
             <CardContent className="p-4 h-full max-h-full overflow-y-auto">
               <h2 className="text-base font-semibold mb-2 text-center">Recorded Outages</h2>
@@ -115,20 +231,31 @@ export default function CaregiverPage() {
                 <thead>
                   <tr>
                     <th className="border-b p-2 text-center">Date & Time</th>
-                    <th className="border-b p-2 text-center">Duration & Video</th>
+                    <th className="border-b p-2 text-center">Video</th>
                     <th className="border-b p-2 text-center">Last Location</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <tr key={i}>
-                      <td className="p-2 text-center">2025-06-0{i + 8} 03:0{i + 2} AM</td>
+                  {outages.map((outage) => (
+                    <tr key={outage.id}>
+                      <td className="p-2 text-center">{new Date(outage.timestamp).toLocaleString()}</td>
                       <td className="p-2 text-center text-blue-500">
-                        <a href="#" className="inline-flex items-center gap-1 hover:underline">
-                          📹 {1 + i}h outage
-                        </a>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button className="hover:underline inline-flex gap-1 items-center">📹 Watch</button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Outage Video</DialogTitle>
+                              <DialogDescription>Review the recorded footage.</DialogDescription>
+                            </DialogHeader>
+                            <video controls className="w-full rounded">
+                              <source src={outage.videoUrl} type="video/mp4" />
+                            </video>
+                          </DialogContent>
+                        </Dialog>
                       </td>
-                      <td className="p-2 text-center">Zone {3 + i}, Taguig City</td>
+                      <td className="p-2 text-center">{decodeURIComponent(outage.lastKnownLocation || "")}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -139,7 +266,6 @@ export default function CaregiverPage() {
 
         {/* Right Column */}
         <div className="flex flex-col h-full space-y-4 min-h-0">
-          {/* Patient Alerts (Adjusted Height) */}
           <Card className="h-1/2 overflow-hidden">
             <CardContent className="p-4 h-full overflow-y-auto">
               <h2 className="text-base font-semibold mb-2 text-center">Patient Alert Records</h2>
@@ -152,15 +278,26 @@ export default function CaregiverPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <tr key={i}>
-                      <td className="p-2 text-center">2025-06-1{i} 10:1{i} AM</td>
+                  {alerts.map((alert) => (
+                    <tr key={alert.id}>
+                      <td className="p-2 text-center">{new Date(alert.timestamp).toLocaleString()}</td>
                       <td className="p-2 text-center text-blue-500">
-                        <a href="#" className="inline-flex items-center gap-1 hover:underline">
-                          📹 Watch
-                        </a>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button className="hover:underline inline-flex gap-1 items-center">📹 Watch</button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Alert Video</DialogTitle>
+                              <DialogDescription>View the alert incident footage.</DialogDescription>
+                            </DialogHeader>
+                            <video controls className="w-full rounded">
+                              <source src={alert.videoUrl} type="video/mp4" />
+                            </video>
+                          </DialogContent>
+                        </Dialog>
                       </td>
-                      <td className="p-2 text-center">Blk {10 + i}, Mabuhay St., QC</td>
+                      <td className="p-2 text-center">{decodeURIComponent(alert.lastKnownLocation || "")}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -168,7 +305,6 @@ export default function CaregiverPage() {
             </CardContent>
           </Card>
 
-          {/* Map */}
           <Card className="flex-1 min-h-0 overflow-hidden">
             <CardContent className="p-0 h-full max-h-full overflow-hidden flex flex-col">
               <div className="p-3">

@@ -21,11 +21,13 @@ export default function LogIn() {
   const [showDialog, setShowDialog] = useState(false);
   const router = useRouter();
 
-  // Use debounce to prevent rapid updates
-  const debouncedSetFormData = useMemo(() =>
-    debounce((name: string, value: string) => {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }, 300), [] // 300ms delay
+  // Debounced input handler to reduce state updates
+  const debouncedSetFormData = useMemo(
+    () =>
+      debounce((name: string, value: string) => {
+        setFormData((prev) => ({ ...prev, [name]: value }));
+      }, 300),
+    []
   );
 
   const handleChange = useCallback(
@@ -35,18 +37,24 @@ export default function LogIn() {
     [debouncedSetFormData]
   );
 
+  // Determine login endpoint based on ID prefix
   const getLoginEndpoint = (identifier: string): string | null => {
-    if (identifier.startsWith("GV - AA -")) return "/api/admins/login";
-    if (identifier.startsWith("GC - CC -")) return "/api/caregivers/login";
-    if (identifier.startsWith("GC - PT -")) return "/api/patients/login";
+    if (!identifier) return null;
+    const prefix = identifier.trim().toUpperCase();
+    if (prefix.startsWith("GV - AA -")) return "/api/admins/login";
+    if (prefix.startsWith("GV - CC -")) return "/api/caregivers/login";
+    if (prefix.startsWith("GV - PT -")) return "/api/patients/login";
     return null;
   };
 
-  const getLoginPayload = (endpoint: string) => {
+  const getLoginPayload = () => {
     const { identifier, password } = formData;
-    return endpoint.includes("admins")
-      ? { username: identifier, password }
-      : { identifier, password };
+    return { username: identifier, password };
+  };
+
+  const setCookie = (name: string, value: string, days = 1) => {
+    const expires = new Date(Date.now() + days * 864e5).toUTCString();
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -55,26 +63,30 @@ export default function LogIn() {
     setShowDialog(false);
 
     const identifier = formData.identifier?.trim();
-    const endpoint = getLoginEndpoint(identifier || "");
+    const password = formData.password?.trim();
 
-    if (!endpoint) {
-      setError("Invalid identifier format.");
+    if (!identifier || !password) {
+      setError("Both identifier and password are required.");
       setShowDialog(true);
       return;
     }
 
-    const payload = getLoginPayload(endpoint);
+    const endpoint = getLoginEndpoint(identifier);
+
+    if (!endpoint) {
+      setError("Invalid identifier format. Use e.g. GV - AA - 1.");
+      setShowDialog(true);
+      return;
+    }
+
+    const payload = getLoginPayload();
 
     try {
-      console.log("Login payload:", payload);
-      console.log("Endpoint:", endpoint);
-
-
       const response = await fetch(`http://localhost:8080${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        credentials: "include",
+        credentials: "include", // important for cookie-based sessions
       });
 
       if (!response.ok) {
@@ -85,6 +97,12 @@ export default function LogIn() {
       const result = await response.json();
       const role = result.role?.toLowerCase();
 
+      // Save username and userId (last digit of identifier)
+      const userId = identifier.split("-").pop()?.trim();
+      setCookie("username", identifier);
+      setCookie("userId", userId || "");
+
+      // Redirect based on role
       switch (role) {
         case "admin":
           router.push("/pages/admin");
