@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import router from "next/router";
 
 interface Patient {
   id: number;
@@ -75,6 +76,19 @@ export default function ClientPage() {
       .find((row) => row.startsWith(`${key}=`));
     return cookie ? decodeURIComponent(cookie.split("=")[1]) : null;
   };
+
+    useEffect(() => {
+    const username = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("username="))
+      ?.split("=")[1];
+    if (!username) {
+      setIsOnline(false);
+      router.push("/");
+    } else {
+      setIsOnline(true);
+    }
+  }, []);
 
   useEffect(() => {
     const jwt = getCookie("jwt");
