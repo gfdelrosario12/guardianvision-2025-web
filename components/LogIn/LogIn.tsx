@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 
 export default function LogIn() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [showDialog, setShowDialog] = useState(false);
@@ -82,11 +83,11 @@ export default function LogIn() {
     const payload = getLoginPayload();
 
     try {
-      const response = await fetch(`http://localhost:8080${endpoint}`, {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        credentials: "include", // important for cookie-based sessions
+        credentials: "include",
       });
 
       if (!response.ok) {

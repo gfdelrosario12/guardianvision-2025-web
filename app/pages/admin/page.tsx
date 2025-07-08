@@ -80,6 +80,7 @@ type Caregiver = {
 type User = Admin | Caregiver | Patient;
 
 export default function AdminPage() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
   const [isOnline, setIsOnline] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -104,12 +105,12 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/admins/users", { credentials: "include" })
+    fetch(`${API_BASE}/api/admins/users`, { credentials: "include" })
       .then((res) => res.json())
       .then(async (data) => {
         const caregiversWithPatients = await Promise.all(
           data.caregivers.map(async (c: Caregiver) => {
-            const response = await fetch(`http://localhost:8080/api/patients/caregiver/${c.id}`);
+            const response = await fetch(`${API_BASE}/api/patients/caregiver/${c.id}`);
             const patients = await response.json();
             return { ...c, patients, role: "caregiver" };
           })
@@ -129,7 +130,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (selectedUser && "caregiver" in selectedUser && selectedUser.caregiver?.id) {
-      fetch(`http://localhost:8080/api/caregivers/${selectedUser.caregiver.id}`, {
+      fetch(`${API_BASE}/api/caregivers/${selectedUser.caregiver.id}`, {
         credentials: "include",
         headers: {
           Accept: "application/json",
@@ -167,7 +168,7 @@ export default function AdminPage() {
       return;
     }
     if (!selectedUser) return;
-    fetch(`http://localhost:8080/api/${selectedUser.role}s/${selectedUser.id}/change-password`, {
+    fetch(`${API_BASE}/api/${selectedUser.role}s/${selectedUser.id}/change-password`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -188,28 +189,57 @@ export default function AdminPage() {
   const handleSaveChanges = () => {
     if (!selectedUser) return;
 
-    if (selectedUser.role === "patient") {
-      const patientUser = selectedUser as Patient;
+    const role = selectedUser.role.toLowerCase();
+    const id = selectedUser.id;
 
-      fetch(`http://localhost:8080/api/patients/${patientUser.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(patientUser),
+    // Fields to send for all users (string values only)
+    const basicInfo: Record<string, string> = {
+      firstName: selectedUser.firstName,
+      middleName: selectedUser.middleName || "",
+      lastName: selectedUser.lastName,
+      email: selectedUser.email,
+      address: selectedUser.address,
+      gender: selectedUser.gender,
+      mobile_number: selectedUser.mobile_number,
+    };
+
+    if (role === "patient") {
+      const patient = selectedUser as Patient;
+      Object.assign(basicInfo, {
+        age: String(patient.age),
+        height: String(patient.height),
+        weight: String(patient.weight),
+        emergency_contact_name: patient.emergency_contact_name,
+        emergency_contact_number: patient.emergency_contact_number,
+        emergency_contact_address: patient.emergency_contact_address,
+        imageUrl: patient.imageUrl || "",
+      });
+    }
+
+    fetch(`${API_BASE}/api/admins/users/${role}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(basicInfo),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to update user");
+        return res.json();
       })
-        .then((res) => res.json())
-        .then(() => alert("User information updated."))
-        .catch((err) => alert("Update failed: " + err));
+      .then(() => alert("User information updated."))
+      .catch((err) => alert("Update failed: " + err));
 
-      if (patientUser.caregiver?.id) {
-        fetch(`http://localhost:8080/api/patients/${patientUser.id}/assign-caregiver/${patientUser.caregiver.id}`, {
-          method: "PUT",
-          credentials: "include",
+    if (role === "patient" && "caregiver" in selectedUser && selectedUser.caregiver?.id) {
+      fetch(`${API_BASE}/api/patients/${id}/assign-caregiver/${selectedUser.caregiver.id}`, {
+        method: "PUT",
+        credentials: "include",
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to reassign caregiver");
+          return res.json();
         })
-          .then((res) => res.json())
-          .then(() => alert("Caregiver reassigned."))
-          .catch((err) => alert("Failed to reassign caregiver: " + err));
-      }
+        .then(() => alert("Caregiver reassigned."))
+        .catch((err) => alert("Failed to reassign caregiver: " + err));
     }
 
     setIsEditingDetails(false);
@@ -217,7 +247,7 @@ export default function AdminPage() {
 
   const handleDelete = (user: User) => {
     if (!confirm("Are you sure you want to delete this user?")) return;
-    fetch(`http://localhost:8080/api/${user.role}s/${user.id}`, {
+    fetch(`${API_BASE}:8080/api/${user.role}s/${user.id}`, {
       method: "DELETE",
       credentials: "include",
     })

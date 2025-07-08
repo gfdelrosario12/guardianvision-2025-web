@@ -58,12 +58,29 @@ interface OutageData {
   timestamp: string;
 }
 
+type Caregiver = {
+  id: number;
+  username: string;
+  email: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  address: string;
+  gender: string;
+  mobile_number: string;
+  role: string;
+  patients: Patient[];
+};
+
 export default function CaregiverPage() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
+
   const [isOnline, setIsOnline] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [alerts, setAlerts] = useState<AlertData[]>([]);
   const [outages, setOutages] = useState<OutageData[]>([]);
+  const [caregiver, setCaregiver] = useState<Caregiver | null>(null);
 
   useEffect(() => {
     const username = document.cookie
@@ -76,22 +93,40 @@ export default function CaregiverPage() {
   useEffect(() => {
     const fetchPatientsFromMe = async () => {
       try {
-        const res = await fetch("http://localhost:8080/api/caregivers/me", {
-          credentials: "include",
+        const res = await fetch(`${API_BASE}/api/caregivers/me`, {
+          method: 'GET',
+          credentials: 'include', // 🔥 critical line for sending cookies
         });
-        const data = await res.json();
-        const fetchedPatients: Patient[] = data.patients || [];
-        setPatients(fetchedPatients);
-        if (fetchedPatients.length > 0) {
-          setSelectedPatient(fetchedPatients[0]);
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Failed to fetch caregiver data: ${res.status} ${text}`);
         }
+
+        const caregiver = await res.json();
+        setCaregiver(caregiver);
+
+        // Then fetch patients assigned to this caregiver
+        const patientsRes = await fetch(`${API_BASE}/api/caregivers/${caregiver.id}/patients`, {
+          method: 'GET',
+          credentials: 'include', // Also include for secure route
+        });
+
+        if (!patientsRes.ok) {
+          const text = await patientsRes.text();
+          throw new Error(`Failed to fetch patients: ${patientsRes.status} ${text}`);
+        }
+
+        const patients = await patientsRes.json();
+        setPatients(patients);
       } catch (error) {
-        console.error("Error fetching caregiver or patients:", error);
+        console.error('Error fetching caregiver or patients:', error);
       }
     };
 
     fetchPatientsFromMe();
   }, []);
+
 
   useEffect(() => {
     if (!selectedPatient) return;
@@ -101,10 +136,10 @@ export default function CaregiverPage() {
     const fetchData = async () => {
       try {
         const [alertsRes, outagesRes] = await Promise.all([
-          fetch(`http://localhost:8080/api/alerts/patient/${selectedPatient.id}`, {
+          fetch(`${API_BASE}/api/alerts/patient/${selectedPatient.id}`, {
             credentials: "include",
           }),
-          fetch(`http://localhost:8080/api/outages/patient/${selectedPatient.id}`, {
+          fetch(`${API_BASE}/api/outages/patient/${selectedPatient.id}`, {
             credentials: "include",
           }),
         ]);

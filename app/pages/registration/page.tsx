@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/dialog";
 
 export default function RegistrationForm() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
+
   const [role, setRole] = useState("admin");
   const [formData, setFormData] = useState<Record<string, any>>({
     email: "",
@@ -70,7 +72,7 @@ export default function RegistrationForm() {
   useEffect(() => {
     if (role === "patient") {
       setCaregiversLoading(true);
-      fetch("http://localhost:8080/api/caregivers")
+      fetch(`${API_BASE}/api/caregivers`)
         .then((res) => res.json())
         .then((data) => {
           setCaregivers(data);
@@ -162,7 +164,7 @@ export default function RegistrationForm() {
         imageUrl: imageUrlBase64 || undefined,
       };
 
-      const response = await fetch(`http://localhost:8080${endpointMap[role]}`, {
+      const response = await fetch(`${API_BASE}${endpointMap[role]}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dataToSend),

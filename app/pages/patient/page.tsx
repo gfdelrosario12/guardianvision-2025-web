@@ -64,6 +64,7 @@ interface OutageData {
 }
 
 export default function PatientPage() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
   const [isOnline, setIsOnline] = useState(false);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [caregiver, setCaregiver] = useState<Caregiver | null>(null);
@@ -99,7 +100,7 @@ export default function PatientPage() {
         const userId = getCookie("userId");
         if (!userId) return;
 
-        const patientRes = await fetch(`http://localhost:8080/api/patients/${userId}`, {
+        const patientRes = await fetch(`${API_BASE}/api/patients/${userId}`, {
           credentials: "include",
         });
         const patientData = await patientRes.json();
@@ -114,7 +115,7 @@ export default function PatientPage() {
         const caregiverId = patientData?.caregiverId;
         if (caregiverId !== undefined && caregiverId !== null) {
           const caregiverRes = await fetch(
-            `http://localhost:8080/api/caregivers/${caregiverId}`,
+            `${API_BASE}/api/caregivers/${caregiverId}`,
             { credentials: "include" }
           );
           const caregiverData = await caregiverRes.json();
@@ -125,10 +126,10 @@ export default function PatientPage() {
         }
 
         const [alertsRes, outagesRes] = await Promise.all([
-          fetch(`http://localhost:8080/api/alerts/patient/${userId}`, {
+          fetch(`${API_BASE}/api/alerts/patient/${userId}`, {
             credentials: "include",
           }),
-          fetch(`http://localhost:8080/api/outages/patient/${userId}`, {
+          fetch(`${API_BASE}/api/outages/patient/${userId}`, {
             credentials: "include",
           }),
         ]);
