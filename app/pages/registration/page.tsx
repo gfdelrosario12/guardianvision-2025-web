@@ -154,15 +154,41 @@ export default function RegistrationForm() {
 
     try {
       setLoading(true);
-      let imageUrlBase64 = "";
-      if (formData.imageFile instanceof File) {
-        imageUrlBase64 = await toBase64(formData.imageFile);
+      let imageUrl = "";
+
+      if (role === "patient" && formData.imageFile instanceof File) {
+        const presignRes = await fetch(`${API_BASE}/api/s3/presign`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: formData.imageFile.name,
+            fileType: formData.imageFile.type,
+          }),
+        });
+
+        if (!presignRes.ok) throw new Error("Failed to get presigned URL");
+
+        const { url, key } = await presignRes.json();
+
+        const uploadRes = await fetch(url, {
+          method: "PUT",
+          headers: { "Content-Type": formData.imageFile.type },
+          body: formData.imageFile,
+        });
+
+        if (!uploadRes.ok) throw new Error("Image upload to S3 failed");
+
+        imageUrl = `https://${process.env.NEXT_PUBLIC_S3_BUCKET}.s3.ap-southeast-1.amazonaws.com/${key}`;
       }
 
-      const dataToSend = {
+      // Create a shallow copy of formData to remove non-backend fields
+      const dataToSend: Record<string, any> = {
         ...formData,
-        imageUrl: imageUrlBase64 || undefined,
+        imageUrl: imageUrl || undefined,
       };
+
+      delete dataToSend.imageFile;
+      delete dataToSend.imagePreview;
 
       const response = await fetch(`${API_BASE}${endpointMap[role]}`, {
         method: "POST",
