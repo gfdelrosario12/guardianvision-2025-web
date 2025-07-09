@@ -91,11 +91,11 @@ export default function CaregiverPage() {
   }, []);
 
   useEffect(() => {
-    const fetchPatientsFromMe = async () => {
+    const fetchCaregiverData = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/caregivers/me`, {
           method: 'GET',
-          credentials: 'include', // 🔥 critical line for sending cookies
+          credentials: 'include',
         });
 
         if (!res.ok) {
@@ -103,28 +103,15 @@ export default function CaregiverPage() {
           throw new Error(`Failed to fetch caregiver data: ${res.status} ${text}`);
         }
 
-        const caregiver = await res.json();
-        setCaregiver(caregiver);
-
-        // Then fetch patients assigned to this caregiver
-        const patientsRes = await fetch(`${API_BASE}/api/caregivers/${caregiver.id}/patients`, {
-          method: 'GET',
-          credentials: 'include', // Also include for secure route
-        });
-
-        if (!patientsRes.ok) {
-          const text = await patientsRes.text();
-          throw new Error(`Failed to fetch patients: ${patientsRes.status} ${text}`);
-        }
-
-        const patients = await patientsRes.json();
-        setPatients(patients);
+        const caregiverData = await res.json();
+        setCaregiver(caregiverData);
+        setPatients(caregiverData.patients || []);
       } catch (error) {
-        console.error('Error fetching caregiver or patients:', error);
+        console.error('Error fetching caregiver data:', error);
       }
     };
 
-    fetchPatientsFromMe();
+    fetchCaregiverData();
   }, []);
 
 
@@ -308,7 +295,6 @@ export default function CaregiverPage() {
                 <thead>
                   <tr>
                     <th className="border-b p-2 text-center">Date & Time</th>
-                    <th className="border-b p-2 text-center">Video</th>
                     <th className="border-b p-2 text-center">Last Location</th>
                   </tr>
                 </thead>
@@ -316,22 +302,6 @@ export default function CaregiverPage() {
                   {alerts.map((alert) => (
                     <tr key={alert.id}>
                       <td className="p-2 text-center">{new Date(alert.timestamp).toLocaleString()}</td>
-                      <td className="p-2 text-center text-blue-500">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <button className="hover:underline inline-flex gap-1 items-center">📹 Watch</button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Alert Video</DialogTitle>
-                              <DialogDescription>View the alert incident footage.</DialogDescription>
-                            </DialogHeader>
-                            <video controls className="w-full rounded">
-                              <source src={alert.videoUrl} type="video/mp4" />
-                            </video>
-                          </DialogContent>
-                        </Dialog>
-                      </td>
                       <td className="p-2 text-center">{decodeURIComponent(alert.lastKnownLocation || "")}</td>
                     </tr>
                   ))}

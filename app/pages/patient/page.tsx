@@ -246,7 +246,6 @@ export default function PatientPage() {
                   <thead>
                     <tr>
                       <th className="border-b p-2 text-center">Date & Time</th>
-                      <th className="border-b p-2 text-center">Video</th>
                       <th className="border-b p-2 text-center">Last Location</th>
                     </tr>
                   </thead>
@@ -254,22 +253,6 @@ export default function PatientPage() {
                     {alerts.map((alert) => (
                       <tr key={alert.id}>
                         <td className="p-2 text-center">{new Date(alert.timestamp).toLocaleString()}</td>
-                        <td className="p-2 text-center text-blue-500">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <button className="hover:underline inline-flex gap-1 items-center">📹 Watch</button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Alert Video</DialogTitle>
-                                <DialogDescription>View the alert footage.</DialogDescription>
-                              </DialogHeader>
-                              <video controls className="w-full rounded">
-                                <source src={alert.videoUrl} type="video/mp4" />
-                              </video>
-                            </DialogContent>
-                          </Dialog>
-                        </td>
                         <td className="p-2 text-center">{decodeURIComponent(alert.lastKnownLocation || "")}</td>
                       </tr>
                     ))}
