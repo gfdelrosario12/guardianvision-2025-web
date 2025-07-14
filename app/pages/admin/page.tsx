@@ -247,7 +247,7 @@ export default function AdminPage() {
 
   const handleDelete = (user: User) => {
     if (!confirm("Are you sure you want to delete this user?")) return;
-    fetch(`${API_BASE}:8080/api/${user.role}s/${user.id}`, {
+    fetch(`${API_BASE}/api/${user.role}s/${user.id}`, {
       method: "DELETE",
       credentials: "include",
     })

@@ -44,7 +44,7 @@ interface Caregiver {
   lastName: string;
   email: string;
   mobileNumber: string;
-    address: string;
+  address: string;
   gender: string;
   role: string;
 }
@@ -78,7 +78,7 @@ export default function PatientPage() {
     return cookie ? decodeURIComponent(cookie.split("=")[1]) : null;
   };
 
-    useEffect(() => {
+  useEffect(() => {
     const username = document.cookie
       .split("; ")
       .find((row) => row.startsWith("username="))
@@ -246,14 +246,12 @@ export default function PatientPage() {
                   <thead>
                     <tr>
                       <th className="border-b p-2 text-center">Date & Time</th>
-                      <th className="border-b p-2 text-center">Last Location</th>
                     </tr>
                   </thead>
                   <tbody>
                     {alerts.map((alert) => (
                       <tr key={alert.id}>
                         <td className="p-2 text-center">{new Date(alert.timestamp).toLocaleString()}</td>
-                        <td className="p-2 text-center">{decodeURIComponent(alert.lastKnownLocation || "")}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -269,7 +267,6 @@ export default function PatientPage() {
                     <tr>
                       <th className="border-b p-2 text-center">Date & Time</th>
                       <th className="border-b p-2 text-center">Video</th>
-                      <th className="border-b p-2 text-center">Last Location</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -292,7 +289,6 @@ export default function PatientPage() {
                             </DialogContent>
                           </Dialog>
                         </td>
-                        <td className="p-2 text-center">{decodeURIComponent(outage.lastKnownLocation || "")}</td>
                       </tr>
                     ))}
                   </tbody>
