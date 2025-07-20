@@ -1,0 +1,20 @@
+# Node modules and build output
+node_modules
+.next
+dist
+out
+
+# Local environment and secrets
+.env
+.env.*        # Matches .env.local, .env.production, etc.
+
+# OS and IDE junk
+.DS_Store
+*.log
+*.swp
+*.tmp
+*.bak
+
+# Version control
+.git
+.gitignore

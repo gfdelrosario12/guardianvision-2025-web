@@ -1,27 +1,28 @@
-# Build stage
-FROM node:20-alpine AS builder
+# Stage 1: Build
+FROM node:20-slim AS build
+
 WORKDIR /app
+
+COPY .env.production .env.production
+COPY package*.json ./
+
+RUN npm ci
+
 COPY . .
 
-# Accept and expose environment variables for build-time
-ARG NEXT_PUBLIC_API_BASE
-ARG NEXT_PUBLIC_S3_BUCKET
-
-ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
-ENV NEXT_PUBLIC_S3_BUCKET=$NEXT_PUBLIC_S3_BUCKET
-
-RUN npm install
 RUN npm run build
 
-# Run stage
-FROM node:20-alpine
-WORKDIR /app
-COPY --from=builder /app ./
+# Stage 2: Run
+FROM node:20-slim AS runner
 
-# Ensure runtime access (optional if not using SSR)
-ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
-ENV NEXT_PUBLIC_S3_BUCKET=$NEXT_PUBLIC_S3_BUCKET
+WORKDIR /app
 ENV NODE_ENV=production
 
+COPY --from=build /app/public ./public
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+
 EXPOSE 3000
+
 CMD ["npm", "start"]
